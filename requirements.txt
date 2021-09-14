@@ -1,0 +1,5 @@
+requests
+pyppeteer
+svglib
+reportlab
+PyPDF2
