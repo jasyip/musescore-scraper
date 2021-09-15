@@ -139,5 +139,5 @@ cython_debug/
 
 
 #Added stuff
-PDFs
+PDFs/
 *.pdf

@@ -13,7 +13,6 @@
             desiredClass = childClass;
         }
     }
-    // console.log(classCounts[desiredClass])
     let svgs = [];
     let i = undefined;
 
@@ -35,18 +34,13 @@
                     if (classCounts[desiredClass].indexOf(record.target.parentElement)
                         == classCounts[desiredClass].length - 1)
                     {
-                        console.log("DONE!");
                         observer.disconnect();
                         resolve(svgs);
                     }
-                    scrollDiv.scrollBy(0, record.target.height);
-                    /*
                     else
                     {
-                        scrollDiv.scrollBy(0, img.height);
+                        scrollDiv.scrollBy(0, record.target.height);
                     }
-                    break;
-                    */
                     break;
                 }
             }
@@ -69,22 +63,4 @@
             }]);
         }
     });
-    /*
-    return { svgs : new Promise((resolve, reject) => {
-        setTimeout(function() {
-            for (let i = 0; i < classCounts[desiredClass].length; ++i) {
-                setTimeout(function() {
-                    let img = classCounts[desiredClass][i].querySelector("img");
-                    svgs.push(img.src);
-                    scrollDiv.scrollBy({
-                        left: 0,
-                        top: img.height,
-                        behavior: 'smooth'
-                    });
-                }, 2000 * i);
-            }
-            setTimeout(resolve, classCounts[desiredClass].length * 2000, svgs);
-        }, 2000);
-    })};
-    */
 }
