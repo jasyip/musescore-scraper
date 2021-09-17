@@ -1,15 +1,50 @@
-# musescore-scraper
+# MuseScore Scraper
 
-# Set-Up
+A MuseScore PDF scraper that serves as both a CLI and Python module. For non-subscription paying users. 
+
+## Set-up
 
 Run `pip install -r requirements.txt` in your terminal
 
-# Usage
+## Usage
 
-Execute `__init__.py` with your command line arguments if as a CLI
+### If as CLI
 
-If as a Python module:
+Execute `musescraper <url>`
+
+### If as Python module
+
 ```python
-import musescore-scraper
-musescore-scraper.to_pdf( <url> )
+import musescore_scraper
+musescore_scraper.to_pdf( <url> )
 ```
+
+## Custom Output Destination
+
+### If as CLI
+
+Execute `musescraper <url> -o <output destination>`
+
+### If as Python module
+
+```python
+import musescore_scraper
+musescore_scraper.to_pdf( <url>, output= <output destination> )
+```
+
+## Debugging
+
+### If as CLI
+
+Execute `musescraper <url> -d [<log file destination>]`
+
+> Note that if a log file destination isn't provided, logs will be sent to stderr stream.
+
+### If as Python module
+
+```python
+import musescore_scraper
+musescore_scraper.to_pdf( <url>, debug_log= <log file destination> )
+```
+
+> Note that if a empty string is provided instead, logs will be sent to stderr stream.
