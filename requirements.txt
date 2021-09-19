@@ -3,3 +3,4 @@ pyppeteer
 reportlab
 requests
 svglib
+sphinx
