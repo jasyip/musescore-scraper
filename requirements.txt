@@ -4,3 +4,4 @@ reportlab
 requests
 svglib
 sphinx
+myst-parser

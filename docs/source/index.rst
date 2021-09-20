@@ -7,6 +7,7 @@ Welcome to MuseScore Scraper's documentation!
 =============================================
 
 .. toctree::
+   README.md
    :maxdepth: 2
    :caption: Contents:
 

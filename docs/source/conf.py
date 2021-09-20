@@ -10,9 +10,10 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import os
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parents[1]))
 
 
 # -- Project information -----------------------------------------------------
@@ -22,7 +23,7 @@ copyright = '2021, Jason Yip'
 author = 'Jason Yip'
 
 # The full version, including alpha/beta/rc tags
-release = '1.1.1'
+release = (Path(__file__).parents[2] / "VERSION").read_text()
 
 
 # -- General configuration ---------------------------------------------------
@@ -31,6 +32,8 @@ release = '1.1.1'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "sphinx.ext.autodoc",
+    "myst_parser",
 ]
 
 # Add any paths that contain templates here, relative to this directory.

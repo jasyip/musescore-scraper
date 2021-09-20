@@ -151,8 +151,8 @@ def to_pdf(
     Extracts the SVGs from a MuseScore score URL.
     Then converts each one to a PDF then merges each page into one multi-page PDF.
 
-    Parameters
-    ----------
+    # Parameters
+
     url : str
         MuseScore score URL to extract PDF from.
     output : Union[None, str, Path]
@@ -161,9 +161,9 @@ def to_pdf(
     debug_log : Union[None, str, Path]
         Whether to receive debug messages or not.
         If so, log will be written to destination, or to stderr if string is empty.
-    timeout: float
+    timeout : float
         How many seconds should be given for the extraction of the SVGs before aborting.
-            Will not abort if timeout=0
+        > Will not abort if ``timeout=0``
     """
     log_level: int = logging.INFO if debug_log is None else logging.DEBUG
 
@@ -183,11 +183,15 @@ def main() -> None:
     """
     This main function is used as a CLI and gets its arguments from sys.argv
     """
-    parser = argparse.ArgumentParser()
-    parser.add_argument("url")
-    parser.add_argument("-o", "--output")
-    parser.add_argument("-d", "--debug-log", nargs="?", const="")
-    parser.add_argument("-t", "--timeout", type=float)
+    parser = argparse.ArgumentParser(description="A MuseScore PDF scraper."
+                                     + " Input a URL to a MuseScore score"
+                                     + ", then outputs a multi-page PDF.")
+    parser.add_argument("url", help="A valid MuseScore score URL")
+    parser.add_argument("-o", "--output", help="File destination")
+    parser.add_argument("-d", "--debug-log", nargs="?", const="", help="Receive debug messages."
+                        + " To a log file if destination provided.")
+    parser.add_argument("-t", "--timeout", type=float, help=
+                        "How many seconds should be given before aborting.")
 
     to_pdf(**parser.parse_args().__dict__)
 
