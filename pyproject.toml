@@ -1,3 +1,9 @@
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+console_output_style = "classic"
+log_cli = true
+log_auto_indent = true
+log_cli_level = "INFO"
