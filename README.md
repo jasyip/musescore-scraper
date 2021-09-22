@@ -15,8 +15,9 @@ Execute `musescraper <url>`
 #### If as Python module
 
 ```python
-import musescore_scraper
-musescore_scraper.to_pdf( <url> )
+from musescore_scraper import MuseScraper
+with MuseScraper() as ms:
+    ms.to_pdf( <url> )
 ```
 
 ### Custom Output Destination
@@ -28,8 +29,9 @@ Execute `musescraper <url> -o <output destination>`
 #### If as Python module
 
 ```python
-import musescore_scraper
-musescore_scraper.to_pdf( <url>, output= <output destination> )
+from musescore_scraper import MuseScraper
+with MuseScraper() as ms:
+    ms.to_pdf( <url>, output= <output destination> )
 ```
 
 ### Debugging
@@ -43,8 +45,9 @@ Execute `musescraper <url> -d [<log file destination>]`
 #### If as Python module
 
 ```python
-import musescore_scraper
-musescore_scraper.to_pdf( <url>, debug_log= <log file destination> )
+from musescore_scraper import MuseScraper
+with MuseScraper(debug_log= <log file destination> ) as ms:
+    ms.to_pdf( <url> )
 ```
 
 > Note that if a empty string is provided instead, logs will be sent to stderr stream.

@@ -24,14 +24,10 @@ import re
 from urllib.parse import quote
 import logging
 from logging import StreamHandler
+import warnings
 from operator import itemgetter
 
 
-import inspect
-
-def lineno():
-    """Returns the current line number in our program."""
-    return inspect.currentframe().f_back.f_lineno
 
 
 class BaseMuseScraper(ABC):
@@ -43,9 +39,16 @@ class BaseMuseScraper(ABC):
             timeout: int = 120 * 1000,
             quiet: bool = False,
     ):
+        self._debug: bool = debug_log is not None
+        self.timeout: int = timeout
+        self.closed: bool = False
+
         logging_kwargs: dict[str, Any] = {}
         
-        log_level: int = logging.INFO if debug_log is None else logging.DEBUG
+        log_level: int = (logging.DEBUG if debug_log else
+                          logging.INFO if not quiet else
+                          logging.WARNING
+                         )
         logging_kwargs["level"] = log_level
 
         if debug_log:
@@ -59,19 +62,15 @@ class BaseMuseScraper(ABC):
 
         logging.basicConfig(**logging_kwargs)
 
-        """
-        if quiet:
-            sys.stdout = open(os.devnull, 'a')
-            sys.stderr = open(os.devnull, 'a')
-        """
-
-        self.logger: logging.Logger = logging.getLogger(__name__)
-        self._debug: bool = debug_log is not None
-        self.timeout = timeout
+        self._logger: logging.Logger = logging.getLogger(__name__)
 
 
     async def close(self) -> None:
-        await self._browser.close()
+        if not self.closed:
+            await self._browser.close()
+            self.closed = True
+        else:
+            warnings.warn("Already closed.", RuntimeWarning)
 
 
     async def _pyppeteer_main(
@@ -79,21 +78,16 @@ class BaseMuseScraper(ABC):
             url: str,
     ) -> list[str]:
 
-        print(lineno())
         page: pyppeteer.page.Page = await self._browser.newPage()
-        print(lineno())
         await page.setViewport({ "width" : 1000, "height" : 1000 } )
-        await page.goto(url, timeout=self.timeout)
+        await page.goto(url)
 
-        print(lineno())
         score_name: str = (
                 await (await (
                         await page.querySelector("h1")).getProperty("innerText")).jsonValue())
-        print(lineno())
         score_creator: str = await (await (
                 await page.querySelector("h2")).getProperty("innerText")).jsonValue()
 
-        print(lineno())
         async def get_score_release_date() -> int:
             for h2 in await page.querySelectorAll("aside h2"):
                 match: Optional[re.Match] = re.fullmatch(
@@ -124,16 +118,13 @@ class BaseMuseScraper(ABC):
             "Keywords": await get_score_tags(),
         }
         
-        print(lineno())
         # svgs = await page.evaluate(bytes(get_data("musescore_scraper", "script.js"), "utf-8"))
         svgs: list[str] = await page.evaluate(str(get_data("musescore_scraper",
                                                            "script.js",
                                                           ), "utf-8"))
 
-        print(lineno())
         await page.close()
 
-        print(lineno())
 
         return {
             "svgs" : svgs,
@@ -146,7 +137,7 @@ class BaseMuseScraper(ABC):
 
 
         for k, v in info_dict.items():
-            self.logger.info(f'Collected "{k}" metadata from score: "{v}"')
+            self._logger.info(f'Collected "{k}" metadata from score: "{v}"')
 
         merger: PdfFileMerger = PdfFileMerger()
         for svg in svgs:
@@ -180,7 +171,7 @@ class BaseMuseScraper(ABC):
             output = Path(output)
         output = output.with_suffix(".pdf")
         
-        if self._debug and Path(__file__).parents[1] in Path().resolve().parents:
+        if self._debug and Path().resolve().is_relative_to(Path(__file__).parents[1]):
             pdfs_folder: Path = Path("PDFs")
             if not pdfs_folder.is_dir():
                 pdfs_folder.mkdir()
@@ -197,9 +188,9 @@ class BaseMuseScraper(ABC):
         output = output.resolve()
         log_message: str = f'PDF { "over" * int(will_rewrite) }written to'
         try:
-            self.logger.info(f'{log_message} "{output.relative_to(Path().resolve())}"')
+            self._logger.info(f'{log_message} "{output.relative_to(Path().resolve())}"')
         except ValueError:
-            self.logger.info(f'{log_message} "{output}"')
+            self._logger.info(f'{log_message} "{output}"')
 
 
         return output
@@ -207,6 +198,12 @@ class BaseMuseScraper(ABC):
 
 
 class AsyncMuseScraper(BaseMuseScraper):
+
+    async def _check_browser(self) -> None:
+        for task in asyncio.all_tasks():
+            if task.get_name() == str(id(self)):
+                self._browser = await asyncio.wait_for(task, self.timeout)
+                break
 
     def __init__(
             self,
@@ -217,12 +214,8 @@ class AsyncMuseScraper(BaseMuseScraper):
     ):
         locs: dict[str, Any] = locals()
         super().__init__(**{ k : v for k, v in locs.items() if not re.match(r"_|self$", k) })
-        self._task: asyncio.Task = asyncio.create_task(
-                pyppeteer.launch()
-        )
-        def set_browser(task):
-            self._browser: pyppeteer.browser.Browser = task.result()
-        self._task.add_done_callback(set_browser)
+
+        task: asyncio.Task = asyncio.create_task(pyppeteer.launch(), name=id(self))
 
 
     async def _pyppeteer_main(
@@ -230,10 +223,18 @@ class AsyncMuseScraper(BaseMuseScraper):
             url: str,
     ) -> list[str]:
         locs = locals()
-        if not hasattr(self, "_browser"):
-            await self._task
-        return await super()._pyppeteer_main(**{ k : v for k, v in locs.items() if not re.match(r"_|self$", k) })
+        await self._check_browser()
+        return await super()._pyppeteer_main(
+                **{ k : v for k, v in locs.items() if not re.match(r"_|self$", k) })
 
+    async def close(self) -> None:
+        """
+        Closes browser. Should be called after all uses.
+
+        :rtype: ``None``
+        """
+        await self._check_browser()
+        await super().close()
 
     async def __aenter__(self):
         return self
@@ -260,7 +261,9 @@ class AsyncMuseScraper(BaseMuseScraper):
         :rtype: Output destination as ``pathlib.Path`` object.
             May or may not differ depending on input arguments.
         """
-        return self._convert(output, await self._pyppeteer_main(url))
+        return self._convert(output, await asyncio.wait_for(
+                self._pyppeteer_main(url), self.timeout
+        ))
 
 
 
@@ -277,7 +280,7 @@ class MuseScraper(BaseMuseScraper):
         locs: dict[str, Any] = locals()
         super().__init__(**{ k : v for k, v in locs.items() if not re.match(r"_|self$", k) })
         self._browser: pyppeteer.browser.Browser = asyncio.get_event_loop().run_until_complete(
-                pyppeteer.launch()
+                asyncio.wait_for(pyppeteer.launch(), self.timeout)
         )
 
 
@@ -285,7 +288,13 @@ class MuseScraper(BaseMuseScraper):
         return self
 
     def close(self) -> None:
+        """
+        Closes browser. Should be called after all uses.
+
+        :rtype: ``None``
+        """
         asyncio.get_event_loop().run_until_complete(super().close())
+
 
     def __exit__(self, exc_type, exc_value, exc_traceback) -> None:
         self.close()
@@ -311,5 +320,5 @@ class MuseScraper(BaseMuseScraper):
             May or may not differ depending on input arguments.
         """
         return self._convert(output, asyncio.get_event_loop().run_until_complete(
-                self._pyppeteer_main(url)
+                asyncio.wait_for(self._pyppeteer_main(url), self.timeout)
         ))

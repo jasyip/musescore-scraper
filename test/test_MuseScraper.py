@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 import pytest
 from typing import Any
 from tempfile import NamedTemporaryFile
+import warnings
 
 sys.path.insert(0, str(Path(__file__).parents[1].resolve()))
 
@@ -16,8 +17,8 @@ from musescore_scraper import MuseScraper, AsyncMuseScraper
 
 URL = "https://musescore.com/masonatcapricestudio/bully-calliope-mori-bully-ijimekko-bully-mori-calliope"
 
-DATA_JSON = json.load(Path("testdata/pyppeteer_example_data.json").open('r'))
-DATA_PDF = Path("testdata/conversion_example.pdf").read_bytes()
+DATA_JSON = json.load((Path(__file__).parent / "testdata/pyppeteer_example_data.json").open('r'))
+DATA_PDF = (Path(__file__).parent / "testdata/example1.pdf").read_bytes()
 
 
 
@@ -47,14 +48,32 @@ async def test_MuseScraperAsync():
 def test_MuseScraper():
     with NamedTemporaryFile(suffix=".pdf", delete=False) as tf:
         fname: Path = Path(tf.name)
-        print("before con")
         with MuseScraper() as musescraper:
-            print("after con")
             output = musescraper.to_pdf(URL, fname)
-            print("after pdf generation")
             assert fname == output
 
     assert fname.read_bytes() == DATA_PDF
+
+    fname.unlink()
+
+
+def test_double_close():
+    ms = MuseScraper()
+    ms.close()
+    with warnings.catch_warnings(record=True) as w:
+        ms.close()
+        assert len(w) == 1
+        assert issubclass(w[-1].category, RuntimeWarning)
+        assert "Already closed." == str(w[-1].message)
+
+def test_timeout():
+    with NamedTemporaryFile(suffix=".pdf", delete=False) as tf:
+        fname: Path = Path(tf.name)
+        with pytest.raises(asyncio.TimeoutError):
+            with MuseScraper(timeout=1) as musescraper:
+                musescraper.to_pdf(URL, fname)
+
+    assert fname.read_bytes() != DATA_PDF
 
     fname.unlink()
 

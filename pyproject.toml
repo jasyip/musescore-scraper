@@ -3,6 +3,7 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
+addopts = "--durations=0"
 console_output_style = "classic"
 log_cli = true
 log_auto_indent = true
