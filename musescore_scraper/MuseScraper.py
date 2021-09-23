@@ -229,7 +229,7 @@ class AsyncMuseScraper(BaseMuseScraper):
 
     async def close(self) -> None:
         """
-        Closes browser. Should be called after all uses.
+        Closes browser. Should be called only once after all uses.
 
         :rtype: ``None``
         """
@@ -252,14 +252,14 @@ class AsyncMuseScraper(BaseMuseScraper):
         Then converts each one to a PDF then merges each page into one multi-page PDF.
 
         :param url: MuseScore score URL to extract PDF from.
-        :type url: str
+        :type url: ``str``
 
         :param output: File destination to write PDF to.
-            If **None**, file name will be the extracted score title.
-        :type output: Union[None, str, pathlib.Path] = None
+            If ``None``, file name will be the extracted score title.
+        :type output: ``Union[None, str, pathlib.Path] = None``
 
         :rtype: Output destination as ``pathlib.Path`` object.
-            May or may not differ depending on input arguments.
+            May or may not differ depending on the output argument.
         """
         return self._convert(output, await asyncio.wait_for(
                 self._pyppeteer_main(url), self.timeout
@@ -289,7 +289,7 @@ class MuseScraper(BaseMuseScraper):
 
     def close(self) -> None:
         """
-        Closes browser. Should be called after all uses.
+        Closes browser. Should be called only once after all uses.
 
         :rtype: ``None``
         """
@@ -310,14 +310,14 @@ class MuseScraper(BaseMuseScraper):
         Then converts each one to a PDF then merges each page into one multi-page PDF.
 
         :param url: MuseScore score URL to extract PDF from.
-        :type url: str
+        :type url: ``str``
 
         :param output: File destination to write PDF to.
-            If **None**, file name will be the extracted score title.
-        :type output: Union[None, str, pathlib.Path] = None
+            If ``None``, file name will be the extracted score title.
+        :type output: ``Union[None, str, pathlib.Path] = None``
 
         :rtype: Output destination as ``pathlib.Path`` object.
-            May or may not differ depending on input arguments.
+            May or may not differ depending on the output argument.
         """
         return self._convert(output, asyncio.get_event_loop().run_until_complete(
                 asyncio.wait_for(self._pyppeteer_main(url), self.timeout)
