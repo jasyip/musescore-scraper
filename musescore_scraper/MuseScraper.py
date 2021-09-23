@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Union, Optional, Any
+from typing import Union, Optional, Any, List, Dict
 
 import os
 import sys
@@ -43,7 +43,7 @@ class BaseMuseScraper(ABC):
         self.timeout: int = timeout
         self.closed: bool = False
 
-        logging_kwargs: dict[str, Any] = {}
+        logging_kwargs: Dict[str, Any] = {}
         
         log_level: int = (logging.DEBUG if debug_log else
                           logging.INFO if not quiet else
@@ -76,7 +76,7 @@ class BaseMuseScraper(ABC):
     async def _pyppeteer_main(
             self,
             url: str,
-    ) -> list[str]:
+    ) -> List[str]:
 
         page: pyppeteer.page.Page = await self._browser.newPage()
         await page.setViewport({ "width" : 1000, "height" : 1000 } )
@@ -101,7 +101,7 @@ class BaseMuseScraper(ABC):
                                                  + ' ' + match.group("year"), "%b %d %Y")))
 
         async def get_score_tags() -> str:
-            tags: list[str] = []
+            tags: List[str] = []
             for span in await page.querySelectorAll("aside section span"):
                 text: str = await (await span.getProperty("innerText")).jsonValue()
                 if ((await (await (await span.getProperty(
@@ -111,7 +111,7 @@ class BaseMuseScraper(ABC):
                     tags.append(text)
             return ','.join(tags)
 
-        info_dict: dict[str, str] = {
+        info_dict: Dict[str, str] = {
             "Title": score_name,
             "Creator": score_creator,
             # "Date released": str(await get_score_release_date()),
@@ -119,7 +119,7 @@ class BaseMuseScraper(ABC):
         }
         
         # svgs = await page.evaluate(bytes(get_data("musescore_scraper", "script.js"), "utf-8"))
-        svgs: list[str] = await page.evaluate(str(get_data("musescore_scraper",
+        svgs: List[str] = await page.evaluate(str(get_data("musescore_scraper",
                                                            "script.js",
                                                           ), "utf-8"))
 
@@ -132,7 +132,7 @@ class BaseMuseScraper(ABC):
         }
 
 
-    def _convert(self, output: Union[None, str, Path], data: dict[str, Any]) -> str:
+    def _convert(self, output: Union[None, str, Path], data: Dict[str, Any]) -> str:
         svgs, info_dict = itemgetter("svgs", "info")(data)
 
 
@@ -212,7 +212,7 @@ class AsyncMuseScraper(BaseMuseScraper):
             timeout: int = 120 * 1000,
             quiet: bool = False,
     ):
-        locs: dict[str, Any] = locals()
+        locs: Dict[str, Any] = locals()
         super().__init__(**{ k : v for k, v in locs.items() if not re.match(r"_|self$", k) })
 
         task: asyncio.Task = asyncio.create_task(pyppeteer.launch(), name=id(self))
@@ -221,7 +221,7 @@ class AsyncMuseScraper(BaseMuseScraper):
     async def _pyppeteer_main(
             self,
             url: str,
-    ) -> list[str]:
+    ) -> List[str]:
         locs = locals()
         await self._check_browser()
         return await super()._pyppeteer_main(
@@ -277,7 +277,7 @@ class MuseScraper(BaseMuseScraper):
             timeout: int = 120 * 1000,
             quiet: bool = False,
     ):
-        locs: dict[str, Any] = locals()
+        locs: Dict[str, Any] = locals()
         super().__init__(**{ k : v for k, v in locs.items() if not re.match(r"_|self$", k) })
         self._browser: pyppeteer.browser.Browser = asyncio.get_event_loop().run_until_complete(
                 asyncio.wait_for(pyppeteer.launch(), self.timeout)

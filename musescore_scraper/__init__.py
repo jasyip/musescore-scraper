@@ -4,7 +4,7 @@ import argparse
 
 from pathlib import Path
 from urllib.parse import urlparse
-from typing import Optional, Union
+from typing import Optional, Union, List
 from .MuseScraper import MuseScraper, AsyncMuseScraper
 import asyncio
 from functools import partial
@@ -16,7 +16,7 @@ def _url_parse(url: str) -> str:
 def _debug_path(path: str) -> Union[Path, str]:
     return Path(path) if path else path
 
-def _main(args: Union[None, list[str], str] = None) -> None:
+def _main(args: Union[None, List[str], str] = None) -> None:
 
     parser = argparse.ArgumentParser(description="A MuseScore PDF scraper."
                                      + " Input a URL to a MuseScore score"
@@ -37,13 +37,13 @@ def _main(args: Union[None, list[str], str] = None) -> None:
 
     assert not args.output or len(args.urls) == len(args.output)
 
-    outputs: list[Optional[Path]] = [None] * len(args.urls)
+    outputs: List[Optional[Path]] = [None] * len(args.urls)
     def set_output(i: int, task: asyncio.Task) -> None:
         outputs[i] = task.result()
 
 
     async def run():
-        tasks: list[asyncio.Task] = []
+        tasks: List[asyncio.Task] = []
 
         async with AsyncMuseScraper(**{ k : v for k, v in args.__dict__.items()
                                        if k in {"debug_log", "timeout", "quiet"} }) as ms:
