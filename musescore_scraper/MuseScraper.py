@@ -27,6 +27,8 @@ from logging import StreamHandler
 import warnings
 from operator import itemgetter
 
+from .helper import _valid_url
+
 
 
 
@@ -118,7 +120,6 @@ class BaseMuseScraper(ABC):
             "Keywords": await get_score_tags(),
         }
         
-        # svgs = await page.evaluate(bytes(get_data("musescore_scraper", "script.js"), "utf-8"))
         svgs: List[str] = await page.evaluate(str(get_data("musescore_scraper",
                                                            "script.js",
                                                           ), "utf-8"))
@@ -261,6 +262,9 @@ class AsyncMuseScraper(BaseMuseScraper):
         :rtype: Output destination as ``pathlib.Path`` object.
             May or may not differ depending on the output argument.
         """
+        if not _valid_url(url):
+            raise TypeError("Invalid URL.")
+
         return self._convert(output, await asyncio.wait_for(
                 self._pyppeteer_main(url), self.timeout
         ))
@@ -319,6 +323,9 @@ class MuseScraper(BaseMuseScraper):
         :rtype: Output destination as ``pathlib.Path`` object.
             May or may not differ depending on the output argument.
         """
+        if not _valid_url(url):
+            raise TypeError("Invalid URL.")
+
         return self._convert(output, asyncio.get_event_loop().run_until_complete(
                 asyncio.wait_for(self._pyppeteer_main(url), self.timeout)
         ))

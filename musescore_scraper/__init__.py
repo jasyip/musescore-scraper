@@ -3,15 +3,17 @@
 import argparse
 
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
 from typing import Optional, Union, List
 from .MuseScraper import MuseScraper, AsyncMuseScraper
+from .helper import _valid_url
 import asyncio
 from functools import partial
 
 def _url_parse(url: str) -> str:
-    tup = urlparse(url)
-    return tup.scheme + "://" + tup.netloc + "/" + tup.path
+    if not _valid_url(url):
+        raise argparse.ArgumentTypeError("Invalid URL.")
+    return url
 
 def _debug_path(path: str) -> Union[Path, str]:
     return Path(path) if path else path
@@ -20,12 +22,15 @@ def _main(args: Union[None, List[str], str] = None) -> None:
 
     parser = argparse.ArgumentParser(description="A MuseScore PDF scraper."
                                      + " Input a URL to a MuseScore score"
-                                     + ", then outputs a multi-page PDF.")
+                                     + ", then outputs a multi-page PDF."
+                                    )
     parser.add_argument("urls", nargs='+', type=_url_parse,
-                        help="an amount of valid MuseScore score URLs")
-    parser.add_argument("-o", "--output", nargs='*', type=Path, help="file destination(s)")
+                        help="an amount of valid MuseScore score URLs"
+                       )
+    parser.add_argument("-o", "--output", nargs='+', type=Path, help="file destination(s)")
     parser.add_argument("-t", "--timeout", type=int, help=
-                        "how many milliseconds should be given before aborting.")
+                        "how many milliseconds should be given before aborting."
+                       )
     parser.add_argument("-d", "--debug-log", type=_debug_path, nargs="?", const="",
                         help="receive debug messages, to a log file if destination provided."
                        )
@@ -35,7 +40,8 @@ def _main(args: Union[None, List[str], str] = None) -> None:
 
     args = parser.parse_args(args)
 
-    assert not args.output or len(args.urls) == len(args.output)
+    if not (not args.output or len(args.urls) == len(args.output)):
+        parser.error("# of outputs must match # of urls or omit output flag.")
 
     outputs: List[Optional[Path]] = [None] * len(args.urls)
     def set_output(i: int, task: asyncio.Task) -> None:
@@ -57,7 +63,7 @@ def _main(args: Union[None, List[str], str] = None) -> None:
                 task.add_done_callback(partial(set_output, i))
                 tasks.append(task)
 
-            result = await asyncio.wait_for(asyncio.gather(*tasks), args.timeout)
+            result = await asyncio.gather(*tasks)
 
         return result
 
