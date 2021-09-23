@@ -26,14 +26,14 @@ with MuseScraper() as ms:
 
 #### If as CLI
 
-Execute `musescraper <urls> -o <output destinations>`
+Execute `musescraper <urls> -o <output destinations or just a shared directory>`
 
 #### If as Python module
 
 ```python
 from musescore_scraper import MuseScraper
 with MuseScraper() as ms:
-    ms.to_pdf( <url>, output= <output destination> )
+    ms.to_pdf( <url>, output= <output destination or just a shared directory> )
 ```
 
 ### Debugging

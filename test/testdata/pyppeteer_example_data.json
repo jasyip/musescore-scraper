@@ -1,5 +1,5 @@
 {
-    "svgs": [
+    "imgs": [
         "https://musescore.com/static/musescore/scoredata/g/72d2eb5aac8d94b85721db4d6f1c91e765509585/score_0.svg?no-cache=1631451792",
         "https://s3.ultimate-guitar.com/musescore.scoredata/g/72d2eb5aac8d94b85721db4d6f1c91e765509585/score_2.svg?response-content-disposition=attachment%3B%20filename%3D%22score_2.svg%22&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=4SHNMJS3MTR9XKK7ULEP%2F20210920%2Fus-west%2Fs3%2Faws4_request&X-Amz-Date=20210920T164126Z&X-Amz-SignedHeaders=host&X-Amz-Expires=300&X-Amz-Signature=b03f1fa5dc08eff5c76d75e31bfd8746d4f543796e2f7d98e010ac29d2baee5f",
         "https://s3.ultimate-guitar.com/musescore.scoredata/g/72d2eb5aac8d94b85721db4d6f1c91e765509585/score_3.svg?response-content-disposition=attachment%3B%20filename%3D%22score_3.svg%22&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=4SHNMJS3MTR9XKK7ULEP%2F20210920%2Fus-west%2Fs3%2Faws4_request&X-Amz-Date=20210920T164126Z&X-Amz-SignedHeaders=host&X-Amz-Expires=300&X-Amz-Signature=6c1800fdd25f02014e45032f2c8320d1c557ca53fdceda4d9f9d7c75c7c8551b",

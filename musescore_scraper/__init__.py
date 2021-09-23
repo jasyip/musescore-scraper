@@ -40,8 +40,15 @@ def _main(args: Union[None, List[str], str] = None) -> None:
 
     args = parser.parse_args(args)
 
-    if not (not args.output or len(args.urls) == len(args.output)):
-        parser.error("# of outputs must match # of urls or omit output flag.")
+
+    if not (not args.output
+            or (len(args.output) == 1 and args.output[0].is_dir())
+            or len(args.urls) == len(args.output)
+            ):
+        parser.error("# of outputs must match # of urls"
+                     + " or have single output as path to directory"
+                     + " or omit output flag."
+                    )
 
     outputs: List[Optional[Path]] = [None] * len(args.urls)
     def set_output(i: int, task: asyncio.Task) -> None:

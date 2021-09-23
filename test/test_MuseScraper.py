@@ -16,9 +16,11 @@ from musescore_scraper import MuseScraper, AsyncMuseScraper
 
 
 URL = "https://musescore.com/masonatcapricestudio/bully-calliope-mori-bully-ijimekko-bully-mori-calliope"
+URL_FOR_PNG = "https://musescore.com/user/1001256/scores/470896"
 
 DATA_JSON = json.load((Path(__file__).parent / "testdata/pyppeteer_example_data.json").open('r'))
 DATA_PDF = (Path(__file__).parent / "testdata/example1.pdf").read_bytes()
+DATA_PDF_FOR_PNG = (Path(__file__).parent / "testdata/example3.pdf").read_bytes()
 
 
 
@@ -28,8 +30,8 @@ async def test_pyppeteer_portion():
         received_data: dict[str, Any] = await musescraper._pyppeteer_main(URL)
 
     assert received_data["info"] == DATA_JSON["info"]
-    assert len(received_data["svgs"]) == len(DATA_JSON["svgs"])
-    for r, e in zip(received_data["svgs"], DATA_JSON["svgs"]):
+    assert len(received_data["imgs"]) == len(DATA_JSON["imgs"])
+    for r, e in zip(received_data["imgs"], DATA_JSON["imgs"]):
         assert urlparse(r).path == urlparse(e).path
 
 
@@ -53,6 +55,17 @@ def test_MuseScraper():
             assert fname == output
 
     assert fname.read_bytes() == DATA_PDF
+
+    fname.unlink()
+
+def test_MuseScraper_png():
+    with NamedTemporaryFile(suffix=".pdf", delete=False) as tf:
+        fname: Path = Path(tf.name)
+        with MuseScraper() as musescraper:
+            output = musescraper.to_pdf(URL_FOR_PNG, fname)
+            assert fname == output
+
+    assert fname.read_bytes() == DATA_PDF_FOR_PNG
 
     fname.unlink()
 

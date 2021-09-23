@@ -16,12 +16,13 @@ import io
 from svglib.svglib import svg2rlg
 from reportlab.graphics import renderPDF
 from PyPDF2 import PdfFileMerger
-from pathlib import Path
+from pathlib import Path, PurePath
 import platform
+from PIL import Image
 
 import time
 import re
-from urllib.parse import quote
+from urllib.parse import urlparse, quote
 import logging
 from logging import StreamHandler
 import warnings
@@ -105,7 +106,7 @@ class BaseMuseScraper(ABC):
         async def get_score_tags() -> str:
             tags: List[str] = []
             for span in await page.querySelectorAll("aside section span"):
-                text: str = await (await span.getProperty("innerText")).jsonValue()
+                text: str = str(await (await span.getProperty("innerText")).jsonValue())
                 if ((await (await (await span.getProperty(
                         "parentElement")).getProperty(
                         "href")).jsonValue()) ==
@@ -119,8 +120,8 @@ class BaseMuseScraper(ABC):
             # "Date released": str(await get_score_release_date()),
             "Keywords": await get_score_tags(),
         }
-        
-        svgs: List[str] = await page.evaluate(str(get_data("musescore_scraper",
+
+        imgs: List[str] = await page.evaluate(str(get_data("musescore_scraper",
                                                            "script.js",
                                                           ), "utf-8"))
 
@@ -128,48 +129,56 @@ class BaseMuseScraper(ABC):
 
 
         return {
-            "svgs" : svgs,
+            "imgs" : imgs,
             "info": info_dict,
         }
 
 
     def _convert(self, output: Union[None, str, Path], data: Dict[str, Any]) -> str:
-        svgs, info_dict = itemgetter("svgs", "info")(data)
+        imgs, info_dict = itemgetter("imgs", "info")(data)
 
 
         for k, v in info_dict.items():
             self._logger.info(f'Collected "{k}" metadata from score: "{v}"')
 
         merger: PdfFileMerger = PdfFileMerger()
-        for svg in svgs:
-            merger.append(
-                io.BytesIO(
-                    renderPDF.drawToString(
-                        svg2rlg(
-                            io.BytesIO(
-                                requests.get(svg).content
-                            )
-                        )
-                    )
-                )
-            )
+        def to_pdf_f(img_ext: str, contents: io.BytesIO) -> io.BytesIO:
+            if img_ext.startswith(".svg"):
+                return io.BytesIO(renderPDF.drawToString(svg2rlg(contents)))
+            elif img_ext.startswith(".png"):
+                stream: io.BytesIO = io.BytesIO()
+                Image.open(contents, formats=["png"]).save(stream, format="PDF")
+                stream.seek(0)
+                return stream
+            else:
+                raise NotImplementedError("Found a non-implemented image type used in given score.")
+
+        for img in imgs:
+            contents: io.BytesIO = io.BytesIO(requests.get(img).content)
+            img_ext: str = PurePath(urlparse(img).path).suffix
+
+            merger.append(to_pdf_f(img_ext, contents))
 
         merger.addMetadata({ ('/' + k): v for k, v in info_dict.items() })
 
 
         def eval_expression(input_string: str) -> str:
-            windows_regex: str = r"[0x00-0x1f\"*/:<>?\\|]"
+            windows_regex: str = r"[\x00-\x1f\"*/:<>?\\|]"
             darwin_regex: str = r"[: ]"
             linux_regex: str = (r"[\x00/]" if os.environ.keys() & {"is_wsl", "wsl_distro_name"}
                             else windows_regex)
             return locals()[input_string]
 
-        if not output:
-            output = re.sub(eval_expression(
-                    platform.system().lower() + "_regex"), '_', info_dict["Title"])
-
-        if isinstance(output, str):
+        if isinstance(output, str) and output:
             output = Path(output)
+
+        if not output or output.is_dir():
+            parent_folder: Optional[Path] = output
+            output = Path(re.sub(eval_expression(
+                    platform.system().lower() + "_regex"), '_', info_dict["Title"]))
+            if parent_folder:
+                output = parent_folder / output
+
         output = output.with_suffix(".pdf")
         
         if self._debug and Path().resolve().is_relative_to(Path(__file__).parents[1]):
@@ -249,7 +258,7 @@ class AsyncMuseScraper(BaseMuseScraper):
             output: Union[None, str, Path] = None,
     ) -> Path:
         """
-        Extracts the SVGs from a MuseScore score URL asynchronously.
+        Extracts the images from a MuseScore score URL asynchronously.
         Then converts each one to a PDF then merges each page into one multi-page PDF.
 
         :param url: MuseScore score URL to extract PDF from.
@@ -310,7 +319,7 @@ class MuseScraper(BaseMuseScraper):
             output: Union[None, str, Path] = None,
     ) -> Path:
         """
-        Extracts the SVGs from a MuseScore score URL.
+        Extracts the images from a MuseScore score URL.
         Then converts each one to a PDF then merges each page into one multi-page PDF.
 
         :param url: MuseScore score URL to extract PDF from.
