@@ -121,9 +121,9 @@ class BaseMuseScraper(ABC):
             "Keywords": await get_score_tags(),
         }
 
-        imgs: List[str] = await page.evaluate(str(get_data("musescore_scraper",
-                                                           "script.js",
-                                                          ), "utf-8"))
+        imgs: List[str] = await asyncio.wait_for(page.evaluate(str(get_data("musescore_scraper",
+                                                               "script.js",
+                                                              ), "utf-8")), self.timeout)
 
         await page.close()
 

@@ -9,33 +9,48 @@
             classCounts[childClass] = [];
         }
         classCounts[childClass].push(child);
-        if (desiredClass === undefined || classCounts[childClass].length > classCounts[desiredClass].length) {
+        if (desiredClass === undefined
+                || classCounts[childClass].length > classCounts[desiredClass].length) {
             desiredClass = childClass;
         }
     }
-    let svgs = [];
+
+    //If it's 2 pages, the 2nd page may be already loaded, thus making generic function not work.
+    if (classCounts[desiredClass].length <= 2) {
+        let imgs = [];
+        for (let div of classCounts[desiredClass]) {
+            img = div.querySelector("img");
+            if (img !== undefined) {
+                imgs.push(img.src);
+            }
+        }
+        if (imgs.length == classCounts[desiredClass].length) {
+            return imgs;
+        }
+    }
+
+    let imgs = [];
     let i = undefined;
 
     scrollDiv.scroll({
         left : 0,
         top : 0,
-        behavior : "smooth"
     });
     
     return new Promise(resolve => {
-        function addSvg(records, observer) {
+        function addImg(records, observer) {
             for (let record of records) { //records is a list of MutationRecords
                 if (record.target.tagName === "IMG"
                     && record.attributeName === "src"
                     && record.target.src !== undefined)
                 {
-                    svgs.push(record.target.src);
+                    imgs.push(record.target.src);
                    
                     if (classCounts[desiredClass].indexOf(record.target.parentElement)
                         == classCounts[desiredClass].length - 1)
                     {
                         observer.disconnect();
-                        resolve(svgs);
+                        resolve(imgs);
                     }
                     else
                     {
@@ -45,7 +60,7 @@
                 }
             }
         }
-        let observer = new MutationObserver(addSvg);
+        let observer = new MutationObserver(addImg);
         for (let child of classCounts[desiredClass]) {
             observer.observe(child, {
                 attributes: true,
@@ -57,7 +72,7 @@
         }
         else
         {
-            addSvg([{
+            addImg([{
                 attributeName: "src",
                 target: classCounts[desiredClass][0].querySelector("img"),
             }]);
