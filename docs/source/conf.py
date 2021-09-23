@@ -25,7 +25,6 @@ author = 'Jason Yip'
 # The full version, including alpha/beta/rc tags
 release = (Path(__file__).parents[2] / "VERSION").read_text()
 
-master_doc = "index"
 
 # -- General configuration ---------------------------------------------------
 
