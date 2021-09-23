@@ -88,4 +88,4 @@ asyncio.get_event_loop().run_until_complete(run())
 
 # Documentation
 
-Available at [https://musescore-scraper.readthedocs.io/en/latest/](https://musescore-scraper.readthedocs.io/en/latest/)
+Available at [https://musescore-scraper.readthedocs.io/en/stable/musescore_scraper.html#module-musescore_scraper.MuseScraper](https://musescore-scraper.readthedocs.io/en/stable/musescore_scraper.html#module-musescore_scraper.MuseScraper)
