@@ -60,17 +60,17 @@ Useful if more than one score shall be downloaded.
 
 ```python
 from musescore_scraper import AsyncMuseScraper
-from typing import Optional
+from typing import Optional, List
 import asyncio
 from functools import partial
 
-urls: list[str] = [ <urls> ]
-outputs: list[Optional[Path]] = [None] * len(args.urls)
+urls: List[str] = [ <urls> ]
+outputs: List[Optional[Path]] = [None] * len(urls)
 def set_output(i: int, task: asyncio.Task) -> None:
     outputs[i] = task.result()
 
 async def run():
-    tasks: list[asyncio.Task] = []
+    tasks: List[asyncio.Task] = []
 
     async with AsyncMuseScraper() as ms:
         for i in range(len(urls)):
