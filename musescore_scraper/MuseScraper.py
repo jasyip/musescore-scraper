@@ -82,7 +82,7 @@ class BaseMuseScraper(ABC):
 
         page: pyppeteer.page.Page = await self._browser.newPage()
         await page.setViewport({ "width" : 1000, "height" : 1000 } )
-        await page.goto(url)
+        await page.goto(url, timeout=self.timeout)
 
         score_name: str = (
                 await (await (
