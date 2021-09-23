@@ -1,9 +1,0 @@
-PyPDF2
-pyppeteer
-reportlab
-requests
-svglib
-sphinx
-myst-parser
-pytest
-pytest-asyncio
