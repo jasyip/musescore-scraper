@@ -39,10 +39,10 @@ class BaseMuseScraper(ABC):
     def __init__(
             self,
             *,
-            debug_log: Union[None, str, Path] = None,
-            timeout: float = 120,
-            quiet: bool = False,
-            proxy_server: Optional[str] = None,
+            debug_log: Union[None, str, Path],
+            timeout: float,
+            quiet: bool,
+            proxy_server: Optional[str],
     ):
         self._debug: bool = debug_log is not None
         self.timeout: float = timeout
@@ -71,7 +71,7 @@ class BaseMuseScraper(ABC):
         self._logger: logging.Logger = logging.getLogger(__name__)
 
 
-    async def close(self) -> None:
+    async def _close(self) -> None:
         if not self.closed:
             await self._browser.close()
             self.closed = True
@@ -88,7 +88,7 @@ class BaseMuseScraper(ABC):
         try:
             page.setDefaultNavigationTimeout(0)
             await page.setViewport({ "width" : 1000, "height" : 1000 } )
-            response: pyppeteer.network_manager.Response = await page.goto(url)
+            response: pyppeteer.network_manager.Response = await page.goto(url, timeout=0)
             if not response.ok:
                 raise ConnectionError(f"Received <{response.status}> response.")
 
@@ -175,7 +175,7 @@ class BaseMuseScraper(ABC):
             response.raise_for_status()
             img_ext: str = PurePath(urlparse(img).path).suffix
 
-            merger.append(to_pdf_f(img_ext, io.BytesIO(response.contents)))
+            merger.append(to_pdf_f(img_ext, io.BytesIO(response.content)))
 
         merger.addMetadata({ ('/' + k): v for k, v in info_dict.items() })
 
@@ -200,7 +200,7 @@ class BaseMuseScraper(ABC):
                 output = parent_folder / output
 
         output = output.with_suffix(".pdf")
-        
+
         if self._debug and Path().resolve().is_relative_to(Path(__file__).parents[1]):
             pdfs_folder: Path = Path("PDFs")
             if not pdfs_folder.is_dir():
@@ -224,6 +224,13 @@ class BaseMuseScraper(ABC):
 
 
         return output
+
+
+    async def _run(self, url: str, output: Union[None, str, Path]) -> Path:
+        if not _valid_url(url):
+            raise TypeError("Invalid URL.")
+        return self._convert(output, await self._pyppeteer_main(url))
+
 
 
 
@@ -270,7 +277,7 @@ class AsyncMuseScraper(BaseMuseScraper):
         :rtype: ``None``
         """
         await self._check_browser()
-        await super().close()
+        await super()._close()
 
     async def __aenter__(self):
         return self
@@ -297,15 +304,9 @@ class AsyncMuseScraper(BaseMuseScraper):
         :rtype: Output destination as ``pathlib.Path`` object.
             May or may not differ depending on the output argument.
         """
-        async def run():
-            if not _valid_url(url):
-                raise TypeError("Invalid URL.")
-            nonlocal output
-            output = self._convert(output, await self._pyppeteer_main(url))
-
-        await (asyncio.wait_for(run(), self.timeout) if self.timeout >= 0.01 else run())
-
-        return output
+        return await (asyncio.wait_for(self._run(url, output), self.timeout)
+                      if self.timeout >= 0.01 else self._run(url, output)
+                     )
 
 
 
@@ -343,7 +344,7 @@ class MuseScraper(BaseMuseScraper):
 
         :rtype: ``None``
         """
-        asyncio.get_event_loop().run_until_complete(super().close())
+        asyncio.get_event_loop().run_until_complete(super()._close())
 
 
     def __exit__(self, exc_type, exc_value, exc_traceback) -> None:
@@ -369,15 +370,7 @@ class MuseScraper(BaseMuseScraper):
         :rtype: Output destination as ``pathlib.Path`` object.
             May or may not differ depending on the output argument.
         """
-        async def run():
-            if not _valid_url(url):
-                raise TypeError("Invalid URL.")
-
-            nonlocal output
-            output = self._convert(output, await self._pyppeteer_main(url))
-
-        asyncio.get_event_loop().run_until_complete(
-                asyncio.wait_for(run(), self.timeout) if self.timeout >= 0.01 else run()
+        return asyncio.get_event_loop().run_until_complete(
+                asyncio.wait_for(self._run(url, output), self.timeout) if self.timeout >= 0.01 else
+                self._run(url, output)
         )
-
-        return output
