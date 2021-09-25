@@ -83,7 +83,7 @@ def test_timeout():
     with NamedTemporaryFile(suffix=".pdf", delete=False) as tf:
         fname: Path = Path(tf.name)
         with pytest.raises(asyncio.TimeoutError):
-            with MuseScraper(timeout=1) as musescraper:
+            with MuseScraper(timeout=0.1) as musescraper:
                 musescraper.to_pdf(URL, fname)
 
     assert fname.read_bytes() != DATA_PDF

@@ -1,8 +1,9 @@
-#!usr/bin/env python3
+#!/usr/bin/env python3
 
 from urllib.parse import urlparse
 import warnings
 import re
+
 
 def _valid_url(url: str) -> bool:
     final_url = urlparse(url + '/' * int(not url.endswith('/')))

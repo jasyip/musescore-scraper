@@ -33,18 +33,21 @@ from .helper import _valid_url
 
 
 
+
 class BaseMuseScraper(ABC):
 
     def __init__(
             self,
             *,
             debug_log: Union[None, str, Path] = None,
-            timeout: int = 120 * 1000,
+            timeout: float = 120,
             quiet: bool = False,
+            proxy_server: Optional[str] = None,
     ):
         self._debug: bool = debug_log is not None
-        self.timeout: int = timeout
+        self.timeout: float = timeout
         self.closed: bool = False
+        self.proxy_server: Optional[str] = proxy_server
 
         logging_kwargs: Dict[str, Any] = {}
         
@@ -82,50 +85,56 @@ class BaseMuseScraper(ABC):
     ) -> List[str]:
 
         page: pyppeteer.page.Page = await self._browser.newPage()
-        await page.setViewport({ "width" : 1000, "height" : 1000 } )
-        await page.goto(url, timeout=self.timeout)
+        try:
+            page.setDefaultNavigationTimeout(0)
+            await page.setViewport({ "width" : 1000, "height" : 1000 } )
+            response: pyppeteer.network_manager.Response = await page.goto(url)
+            if not response.ok:
+                raise ConnectionError(f"Received <{response.status}> response.")
 
-        score_name: str = (
-                await (await (
-                        await page.querySelector("h1")).getProperty("innerText")).jsonValue())
-        score_creator: str = await (await (
-                await page.querySelector("h2")).getProperty("innerText")).jsonValue()
+            score_name: str = (
+                    await (await (
+                            await page.querySelector("h1")).getProperty("innerText")).jsonValue())
+            score_creator: str = await (await (
+                    await page.querySelector("h2")).getProperty("innerText")).jsonValue()
 
-        async def get_score_release_date() -> int:
-            for h2 in await page.querySelectorAll("aside h2"):
-                match: Optional[re.Match] = re.fullmatch(
-                    r"Uploaded\son\s(?P<month>[A-Z][a-z]{2})\s(?P<day>\d{1,2}),\s(?P<year>\d{4})",
-                    await (await h2.getProperty("innerText")).jsonValue()
-                )
-                if match is not None:
-                    break
-            return int(time.mktime(time.strptime(match.group("month")
-                                                 + ' ' + match.group("day").zfill(2)
-                                                 + ' ' + match.group("year"), "%b %d %Y")))
+            async def get_score_release_date() -> int:
+                for h2 in await page.querySelectorAll("aside h2"):
+                    match: Optional[re.Match] = re.fullmatch(
+                        r"Uploaded\son\s(?P<month>[A-Z][a-z]{2})\s(?P<day>\d{1,2}),\s(?P<year>\d{4})",
+                        await (await h2.getProperty("innerText")).jsonValue()
+                    )
+                    if match is not None:
+                        break
+                return int(time.mktime(time.strptime(match.group("month")
+                                                     + ' ' + match.group("day").zfill(2)
+                                                     + ' ' + match.group("year"), "%b %d %Y")))
 
-        async def get_score_tags() -> str:
-            tags: List[str] = []
-            for span in await page.querySelectorAll("aside section span"):
-                text: str = str(await (await span.getProperty("innerText")).jsonValue())
-                if ((await (await (await span.getProperty(
-                        "parentElement")).getProperty(
-                        "href")).jsonValue()) ==
-                        "https://musescore.com/sheetmusic?tags=" + quote(text)):
-                    tags.append(text)
-            return ','.join(tags)
+            async def get_score_tags() -> str:
+                tags: List[str] = []
+                for span in await page.querySelectorAll("aside section span"):
+                    text: str = str(await (await span.getProperty("innerText")).jsonValue())
+                    if ((await (await (await span.getProperty(
+                            "parentElement")).getProperty(
+                            "href")).jsonValue()) ==
+                            "https://musescore.com/sheetmusic?tags=" + quote(text)):
+                        tags.append(text)
+                return ','.join(tags)
 
-        info_dict: Dict[str, str] = {
-            "Title": score_name,
-            "Creator": score_creator,
-            # "Date released": str(await get_score_release_date()),
-            "Keywords": await get_score_tags(),
-        }
+            info_dict: Dict[str, str] = {
+                "Title": score_name,
+                "Creator": score_creator,
+                # "Date released": str(await get_score_release_date()),
+                "Keywords": await get_score_tags(),
+            }
 
-        imgs: List[str] = await asyncio.wait_for(page.evaluate(str(get_data("musescore_scraper",
-                                                               "script.js",
-                                                              ), "utf-8")), self.timeout)
-
-        await page.close()
+            imgs: List[str] = await page.evaluate(str(get_data("musescore_scraper",
+                                                                   "script.js",
+                                                                  ), "utf-8"))
+        except:
+            raise
+        finally:
+            await page.close()
 
 
         return {
@@ -134,12 +143,14 @@ class BaseMuseScraper(ABC):
         }
 
 
-    def _convert(self, output: Union[None, str, Path], data: Dict[str, Any]) -> str:
+
+    def _convert(self, output: Union[None, str, Path], data: Dict[str, Any]) -> Path:
         imgs, info_dict = itemgetter("imgs", "info")(data)
 
 
         for k, v in info_dict.items():
             self._logger.info(f'Collected "{k}" metadata from score: "{v}"')
+
 
         merger: PdfFileMerger = PdfFileMerger()
         def to_pdf_f(img_ext: str, contents: io.BytesIO) -> io.BytesIO:
@@ -154,10 +165,17 @@ class BaseMuseScraper(ABC):
                 raise NotImplementedError("Found a non-implemented image type used in given score.")
 
         for img in imgs:
-            contents: io.BytesIO = io.BytesIO(requests.get(img).content)
+            if self.proxy_server:
+                response: requests.Response = requests.get(img, proxies={
+                        "http" : self.proxy_server,
+                        "https" : self.proxy_server,
+                })
+            else:
+                response: requests.Response = requests.get(img)
+            response.raise_for_status()
             img_ext: str = PurePath(urlparse(img).path).suffix
 
-            merger.append(to_pdf_f(img_ext, contents))
+            merger.append(to_pdf_f(img_ext, io.BytesIO(response.contents)))
 
         merger.addMetadata({ ('/' + k): v for k, v in info_dict.items() })
 
@@ -165,8 +183,10 @@ class BaseMuseScraper(ABC):
         def eval_expression(input_string: str) -> str:
             windows_regex: str = r"[\x00-\x1f\"*/:<>?\\|]"
             darwin_regex: str = r"[: ]"
-            linux_regex: str = (r"[\x00/]" if os.environ.keys() & {"is_wsl", "wsl_distro_name"}
-                            else windows_regex)
+            linux_regex: str = (r"[\x00/]"
+                                if not {"is_wsl", "wsl_distro_name"} <= os.environ.keys()
+                                else windows_regex
+                               )
             return locals()[input_string]
 
         if isinstance(output, str) and output:
@@ -212,20 +232,26 @@ class AsyncMuseScraper(BaseMuseScraper):
     async def _check_browser(self) -> None:
         for task in asyncio.all_tasks():
             if task.get_name() == str(id(self)):
-                self._browser = await asyncio.wait_for(task, self.timeout)
+                self._browser = await task
                 break
 
     def __init__(
             self,
             *,
             debug_log: Union[None, str, Path] = None,
-            timeout: int = 120 * 1000,
+            timeout: float = 120,
             quiet: bool = False,
+            proxy_server: Optional[str] = None,
     ):
         locs: Dict[str, Any] = locals()
         super().__init__(**{ k : v for k, v in locs.items() if not re.match(r"_|self$", k) })
-
-        task: asyncio.Task = asyncio.create_task(pyppeteer.launch(), name=id(self))
+        
+        if proxy_server:
+            task: asyncio.Task = asyncio.create_task(
+                    pyppeteer.launch({"args" : ["--proxy-server=" + urlparse(proxy_server).netloc] }
+            ), name=id(self))
+        else:
+            task: asyncio.Task = asyncio.create_task(pyppeteer.launch(), name=id(self))
 
 
     async def _pyppeteer_main(
@@ -271,13 +297,15 @@ class AsyncMuseScraper(BaseMuseScraper):
         :rtype: Output destination as ``pathlib.Path`` object.
             May or may not differ depending on the output argument.
         """
-        if not _valid_url(url):
-            raise TypeError("Invalid URL.")
+        async def run():
+            if not _valid_url(url):
+                raise TypeError("Invalid URL.")
+            nonlocal output
+            output = self._convert(output, await self._pyppeteer_main(url))
 
-        return self._convert(output, await asyncio.wait_for(
-                self._pyppeteer_main(url), self.timeout
-        ))
+        await (asyncio.wait_for(run(), self.timeout) if self.timeout >= 0.01 else run())
 
+        return output
 
 
 
@@ -287,14 +315,23 @@ class MuseScraper(BaseMuseScraper):
             self,
             *,
             debug_log: Union[None, str, Path] = None,
-            timeout: int = 120 * 1000,
+            timeout: float = 120,
             quiet: bool = False,
+            proxy_server: Optional[str] = None,
     ):
         locs: Dict[str, Any] = locals()
         super().__init__(**{ k : v for k, v in locs.items() if not re.match(r"_|self$", k) })
-        self._browser: pyppeteer.browser.Browser = asyncio.get_event_loop().run_until_complete(
-                asyncio.wait_for(pyppeteer.launch(), self.timeout)
-        )
+
+        if proxy_server:
+            self._browser: pyppeteer.browser.Browser = asyncio.get_event_loop().run_until_complete(
+                    pyppeteer.launch(
+                            {"args" : ["--proxy-server=" + urlparse(proxy_server).netloc] },
+                    )
+            )
+        else:
+            self._browser: pyppeteer.browser.Browser = asyncio.get_event_loop().run_until_complete(
+                    pyppeteer.launch()
+            )
 
 
     def __enter__(self):
@@ -332,9 +369,17 @@ class MuseScraper(BaseMuseScraper):
         :rtype: Output destination as ``pathlib.Path`` object.
             May or may not differ depending on the output argument.
         """
-        if not _valid_url(url):
-            raise TypeError("Invalid URL.")
+        output: Optional[Path] = None
 
-        return self._convert(output, asyncio.get_event_loop().run_until_complete(
-                asyncio.wait_for(self._pyppeteer_main(url), self.timeout)
-        ))
+        async def run():
+            if not _valid_url(url):
+                raise TypeError("Invalid URL.")
+
+            nonlocal output
+            output = self._convert(output, await self._pyppeteer_main(url))
+
+        asyncio.get_event_loop().run_until_complete(
+                asyncio.wait_for(run(), self.timeout) if self.timeout >= 0.01 else run()
+        )
+
+        return output
