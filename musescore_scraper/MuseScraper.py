@@ -369,8 +369,6 @@ class MuseScraper(BaseMuseScraper):
         :rtype: Output destination as ``pathlib.Path`` object.
             May or may not differ depending on the output argument.
         """
-        output: Optional[Path] = None
-
         async def run():
             if not _valid_url(url):
                 raise TypeError("Invalid URL.")
