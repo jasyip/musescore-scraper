@@ -158,7 +158,10 @@ class BaseMuseScraper(ABC):
                 return io.BytesIO(renderPDF.drawToString(svg2rlg(contents)))
             elif img_ext.startswith(".png"):
                 stream: io.BytesIO = io.BytesIO()
-                Image.open(contents, formats=["png"]).save(stream, format="PDF")
+                img: Image = Image.open(contents, formats=["png"])
+                if img.mode == "RGBA":
+                    img = img.convert("RGB")
+                img.save(stream, format="PDF")
                 stream.seek(0)
                 return stream
             else:
