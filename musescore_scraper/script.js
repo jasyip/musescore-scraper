@@ -3,79 +3,86 @@
     let scrollDiv = curPage.parentElement.parentElement;
     let classCounts = {};
     let desiredClass = undefined;
-    for (let child of scrollDiv.children) {
+    for (let i = 0; i < scrollDiv.children.length; ++i) {
+        let child = scrollDiv.children[i];
         let childClass = Array.from(child.classList).join(" ");
         if (!(childClass in classCounts)) {
             classCounts[childClass] = [];
         }
-        classCounts[childClass].push(child);
+        classCounts[childClass].push(i);
         if (desiredClass === undefined
                 || classCounts[childClass].length > classCounts[desiredClass].length) {
             desiredClass = childClass;
         }
     }
 
-    //If it's 2 pages, the 2nd page may be already loaded, thus making generic function not work.
-    if (classCounts[desiredClass].length <= 2) {
-        let imgs = [];
-        for (let div of classCounts[desiredClass]) {
-            img = div.querySelector("img");
-            if (img !== undefined) {
-                imgs.push(img.src);
+    let imgs = {};
+    let curInd = classCounts[desiredClass][0];
+
+    function myIndexOf(arr, ele) {
+        for (let i = 0; i < arr.length; ++i) {
+            if (arr[i] === ele) {
+                return i;
             }
         }
-        if (imgs.length == classCounts[desiredClass].length) {
-            return imgs;
-        }
+        return -1;
     }
 
-    let imgs = [];
-    let i = undefined;
-
-    scrollDiv.scroll({
-        left : 0,
-        top : 0,
-    });
-    
     return new Promise(resolve => {
-        function addImg(records, observer) {
-            for (let record of records) { //records is a list of MutationRecords
-                if (record.target.tagName === "IMG"
-                    && record.attributeName === "src"
-                    && record.target.src !== undefined)
-                {
-                    imgs.push(record.target.src);
-                   
-                    if (classCounts[desiredClass].indexOf(record.target.parentElement)
-                        == classCounts[desiredClass].length - 1)
+        let observerArray = {};
+        function addImg(ind) {
+            return (records, observer) => {
+                for (let record of records) { //records is a list of MutationRecords
+                    console.log(ind, curInd);
+                    if (record.target !== null
+                        && record.target.tagName === "IMG"
+                        && record.attributeName === "src"
+                        && record.target.src)
                     {
-                        observer.disconnect();
-                        resolve(imgs);
+                        if (!(ind in imgs)) {
+                            imgs[ind] = record.target.src;
+                        }
+                        if (curInd == ind) {
+                            if (ind == classCounts[desiredClass][classCounts[desiredClass].length - 1])
+                            {
+                                for (let observer of Object.values(observerArray)) {
+                                    observer.disconnect();
+                                }
+                                let arr = Object.entries(imgs);
+                                arr.sort((a, b) => { return Math.sign(a[0] - b[0]); });
+                                resolve(arr.map((entry) => { return entry[1]; }));
+                            }
+                            else
+                            {
+                                ++curInd;
+                                scrollDiv.scrollBy(0, record.target.height);
+                                if (curInd == ind + 1) {
+                                    addImg(curInd)([{
+                                        attributeName: "src",
+                                        target: scrollDiv.children[curInd].querySelector("img"),
+                                    }], observerArray[curInd]);
+                                }
+                            }
+                        }
                     }
-                    else
-                    {
-                        scrollDiv.scrollBy(0, record.target.height);
-                    }
-                    break;
                 }
-            }
+            };
         }
-        let observer = new MutationObserver(addImg);
-        for (let child of classCounts[desiredClass]) {
-            observer.observe(child, {
+        for (let ind of classCounts[desiredClass]) {
+            let observer = new MutationObserver(addImg(ind));
+            observer.observe(scrollDiv.children[ind], {
                 attributes: true,
                 subtree: true,
             });
+            observerArray[ind] = observer;
         }
-        if (classCounts[desiredClass][0].children.length === 0) {
-            divScroll.scroll(0, 0);
-        }
-        else
-        {
-            addImg([{
+        scrollDiv.scroll(0, 0);
+        for (let ind of classCounts[desiredClass]){
+            let img = scrollDiv.children[ind].querySelector("img");
+            addImg(0)([{
                 attributeName: "src",
-                target: classCounts[desiredClass][0].querySelector("img"),
-            }]);
+                target: img,
+            }], observerArray[ind]);
         }
     });
 }
